@@ -9,6 +9,7 @@
  */
 import { generarIdentidad } from '../../src/lib/logo';
 import { construirProyecto } from '../../src/lib/plantillas';
+import { derivarPalabrasClave } from '../../src/lib/palabras-clave';
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -99,16 +100,7 @@ export async function onRequestPost({ request, env }) {
         .filter((p) => p.palabra)
     : [];
 
-  const clavesFinal = clavesRecibidas.length
-    ? clavesRecibidas
-    : Array.from(
-        new Set(
-          `${tematica} ${secciones.map((s) => `${s.nombre} ${s.descriptor}`).join(' ')}`
-            .toLowerCase()
-            .split(/[^a-záéíóúñü0-9]+/i)
-            .filter((p) => p.length >= 4)
-        )
-      ).map((palabra) => ({ palabra, peso: 6 }));
+  const clavesFinal = clavesRecibidas.length ? clavesRecibidas : derivarPalabrasClave(tematica, secciones);
 
   const cfg = {
     nombre,

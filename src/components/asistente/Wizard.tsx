@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { generarIdentidad } from '../../lib/logo';
+import { derivarPalabrasClave } from '../../lib/palabras-clave';
 import catalogoFuentes from '../../data/catalogo-fuentes.json';
 
 interface Seccion {
@@ -55,7 +56,7 @@ export default function Wizard() {
   const [pesosPersonalizados, setPesosPersonalizados] = useState<Record<string, number>>({});
   const [clavesQuitadas, setClavesQuitadas] = useState<Set<string>>(new Set());
   const [clavesExtra, setClavesExtra] = useState<PalabraClave[]>([]);
-  const [nuevaClave, setNuevaClave] = useState<PalabraClave>({ palabra: '', peso: 6 });
+  const [nuevaClave, setNuevaClave] = useState<PalabraClave>({ palabra: '', peso: 9 });
 
   const [frecuenciaKey, setFrecuenciaKey] = useState<(typeof FRECUENCIAS)[number]['key']>('diario');
   const [cantidad, setCantidad] = useState(2);
@@ -77,21 +78,13 @@ export default function Wizard() {
 
   const frecuencia = FRECUENCIAS.find((f) => f.key === frecuenciaKey)!;
 
-  const clavesSugeridas = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          `${tematica} ${secciones.map((s) => `${s.nombre} ${s.descriptor}`).join(' ')}`
-            .toLowerCase()
-            .split(/[^a-záéíóúñü0-9]+/i)
-            .filter((p) => p.length >= 4)
-        )
-      ),
-    [tematica, secciones]
-  );
+  const sugeridas = useMemo(() => derivarPalabrasClave(tematica, secciones), [tematica, secciones]);
+  const clavesSugeridas = sugeridas.map((s) => s.palabra);
 
   const palabrasClave: PalabraClave[] = [
-    ...clavesSugeridas.filter((p) => !clavesQuitadas.has(p)).map((p) => ({ palabra: p, peso: pesosPersonalizados[p] ?? 6 })),
+    ...sugeridas
+      .filter((s) => !clavesQuitadas.has(s.palabra))
+      .map((s) => ({ palabra: s.palabra, peso: pesosPersonalizados[s.palabra] ?? s.peso })),
     ...clavesExtra,
   ];
 
@@ -313,15 +306,15 @@ export default function Wizard() {
                 van con tu línea editorial. Solo pasan al digest las noticias con puntuación positiva.
               </p>
               <ul className="claves">
-                {clavesSugeridas.filter((p) => !clavesQuitadas.has(p)).map((p) => (
-                  <li key={p}>
-                    <span className="clave-palabra">{p}</span>
+                {sugeridas.filter((s) => !clavesQuitadas.has(s.palabra)).map((s) => (
+                  <li key={s.palabra}>
+                    <span className="clave-palabra">{s.palabra}</span>
                     <input
                       type="number"
-                      value={pesosPersonalizados[p] ?? 6}
-                      onChange={(e) => setPesosPersonalizados((prev) => ({ ...prev, [p]: Number(e.target.value) }))}
+                      value={pesosPersonalizados[s.palabra] ?? s.peso}
+                      onChange={(e) => setPesosPersonalizados((prev) => ({ ...prev, [s.palabra]: Number(e.target.value) }))}
                     />
-                    <button type="button" onClick={() => setClavesQuitadas((prev) => new Set(prev).add(p))}>✕</button>
+                    <button type="button" onClick={() => setClavesQuitadas((prev) => new Set(prev).add(s.palabra))}>✕</button>
                   </li>
                 ))}
                 {clavesExtra.map((p, i) => (
@@ -357,7 +350,7 @@ export default function Wizard() {
                     const palabra = nuevaClave.palabra.trim().toLowerCase();
                     if (!palabra) return;
                     setClavesExtra((prev) => [...prev, { palabra, peso: nuevaClave.peso }]);
-                    setNuevaClave({ palabra: '', peso: 6 });
+                    setNuevaClave({ palabra: '', peso: 9 });
                   }}
                 >
                   + Añadir
