@@ -215,6 +215,13 @@ export default function Wizard() {
                   </div>
                 </div>
               )}
+              {identidad && (
+                <p className="ayuda estilo-preview">
+                  Estilo asignado: <strong style={{ fontFamily: identidad.tipografia.display }}>{identidad.tipografia.etiqueta}</strong>
+                  {' · '}portada tipo <strong>{{ rejilla: 'rejilla de tarjetas', hero: 'destacado + rejilla', lista: 'listado editorial' }[identidad.layout]}</strong>.
+                  {' '}Sale distinto para cada combinación de nombre, temática y editorial.
+                </p>
+              )}
             </section>
           )}
 
