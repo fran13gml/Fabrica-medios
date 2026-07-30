@@ -143,10 +143,13 @@ export async function onRequestPost({ request, env }) {
 
   // 2. Subir cada fichero (repo recién creado, sin sha previo). GitHub aplica
   //    rate-limiting secundario a ráfagas de escritura, así que cada PUT
-  //    reintenta con backoff antes de darse por vencido.
+  //    reintenta con backoff antes de darse por vencido — pero solo cuando
+  //    el fallo tiene pinta de ser temporal, no cuando es un problema de
+  //    permisos del token (reintentar eso no cambia nada).
   const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
 
   async function subirFichero(f, intentos = 3) {
+    let ultimoFallo = null;
     for (let intento = 1; intento <= intentos; intento++) {
       const res = await gh(env, `/repos/${owner}/${slug}/contents/${f.path}`, {
         method: 'PUT',
@@ -157,10 +160,23 @@ export async function onRequestPost({ request, env }) {
         }),
       });
       if (res.ok) return null;
-      const reintentable = res.status === 403 || res.status === 429 || res.status >= 500;
-      if (!reintentable || intento === intentos) return { path: f.path, status: res.status };
+
+      const detalle = await res.text().catch(() => '');
+      ultimoFallo = { path: f.path, status: res.status, detalle: detalle.slice(0, 300) };
+
+      const sinScopeWorkflow =
+        f.path.startsWith('.github/workflows/') && (res.status === 403 || res.status === 404);
+      if (sinScopeWorkflow || /\bworkflow\b.*\bscope\b/i.test(detalle)) {
+        ultimoFallo.pista =
+          'El GITHUB_TOKEN no tiene el scope "workflow" marcado (obligatorio para crear ficheros en .github/workflows/). En GitHub → Settings → Developer settings → Personal access tokens, edita el token y marca también "workflow", no solo "repo".';
+      }
+
+      const retryAfter = res.headers.get('retry-after');
+      const reintentable = res.status === 429 || res.status >= 500 || (res.status === 403 && retryAfter);
+      if (!reintentable || intento === intentos) return ultimoFallo;
       await esperar(500 * 2 ** (intento - 1));
     }
+    return ultimoFallo;
   }
 
   const fallos = [];

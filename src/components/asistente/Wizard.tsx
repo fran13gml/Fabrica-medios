@@ -438,13 +438,15 @@ export default function Wizard() {
           {resultado.ficherosFallidos?.length > 0 && (
             <div className="aviso-fallos">
               <p>
-                GitHub rechazó {resultado.ficherosFallidos.length} fichero(s) al subir el proyecto (rate-limit u otro
-                error temporal). El repo se creó igual, pero le faltan estos ficheros y su deploy fallará hasta
-                subirlos a mano o re-crear el medio:
+                GitHub rechazó {resultado.ficherosFallidos.length} fichero(s) al subir el proyecto. El repo se creó
+                igual, pero le faltan estos ficheros y su deploy fallará hasta subirlos a mano o re-crear el medio:
               </p>
               <ul>
-                {resultado.ficherosFallidos.map((f: { path: string; status: number }) => (
-                  <li key={f.path}><code>{f.path}</code> — HTTP {f.status}</li>
+                {resultado.ficherosFallidos.map((f: { path: string; status: number; detalle?: string; pista?: string }) => (
+                  <li key={f.path}>
+                    <code>{f.path}</code> — HTTP {f.status}
+                    {f.pista && <><br /><strong>Causa probable:</strong> {f.pista}</>}
+                  </li>
                 ))}
               </ul>
             </div>
