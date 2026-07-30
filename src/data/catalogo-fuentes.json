@@ -1,6 +1,6 @@
 {
   "actualidad-general": {
-    "nombre": "Actualidad general",
+    "nombre": "Actualidad y general",
     "descripcion": "Portada, España y mundo. Punto de partida si tu medio no encaja en un nicho concreto.",
     "fuentes": [
       { "nombre": "El País", "url": "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/portada" },
