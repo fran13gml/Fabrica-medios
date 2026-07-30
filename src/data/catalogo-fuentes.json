@@ -52,7 +52,7 @@
     ]
   },
   "ciencia": {
-    "nombre": "Ciencia y salud",
+    "nombre": "Ciencia salud",
     "descripcion": "Divulgación científica y salud.",
     "fuentes": [
       { "nombre": "El País Ciencia", "url": "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/section/ciencia/portada" },
