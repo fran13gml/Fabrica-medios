@@ -13,6 +13,11 @@ interface Fuente {
   url: string;
 }
 
+interface PalabraClave {
+  palabra: string;
+  peso: number;
+}
+
 const FRECUENCIAS = [
   { key: 'cada-6h', label: 'Cada 6 horas', cron: '0 */6 * * *', ventanaHoras: 7 },
   { key: 'cada-12h', label: 'Cada 12 horas', cron: '0 */12 * * *', ventanaHoras: 13 },
@@ -47,6 +52,11 @@ export default function Wizard() {
   const [fuentesManuales, setFuentesManuales] = useState<Fuente[]>([]);
   const [nuevaFuente, setNuevaFuente] = useState<Fuente>({ nombre: '', url: '' });
 
+  const [pesosPersonalizados, setPesosPersonalizados] = useState<Record<string, number>>({});
+  const [clavesQuitadas, setClavesQuitadas] = useState<Set<string>>(new Set());
+  const [clavesExtra, setClavesExtra] = useState<PalabraClave[]>([]);
+  const [nuevaClave, setNuevaClave] = useState<PalabraClave>({ palabra: '', peso: 6 });
+
   const [frecuenciaKey, setFrecuenciaKey] = useState<(typeof FRECUENCIAS)[number]['key']>('diario');
   const [cantidad, setCantidad] = useState(2);
 
@@ -66,6 +76,24 @@ export default function Wizard() {
   ];
 
   const frecuencia = FRECUENCIAS.find((f) => f.key === frecuenciaKey)!;
+
+  const clavesSugeridas = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          `${tematica} ${secciones.map((s) => `${s.nombre} ${s.descriptor}`).join(' ')}`
+            .toLowerCase()
+            .split(/[^a-záéíóúñü0-9]+/i)
+            .filter((p) => p.length >= 4)
+        )
+      ),
+    [tematica, secciones]
+  );
+
+  const palabrasClave: PalabraClave[] = [
+    ...clavesSugeridas.filter((p) => !clavesQuitadas.has(p)).map((p) => ({ palabra: p, peso: pesosPersonalizados[p] ?? 6 })),
+    ...clavesExtra,
+  ];
 
   function actualizarSeccion(i: number, campo: keyof Seccion, valor: string) {
     setSecciones((prev) => {
@@ -104,6 +132,7 @@ export default function Wizard() {
           frecuenciaCron: frecuencia.cron,
           ventanaHoras: frecuencia.ventanaHoras,
           cantidad,
+          palabrasClave,
         }),
       });
       const data = await res.json();
@@ -264,6 +293,64 @@ export default function Wizard() {
                   + Añadir
                 </button>
               </div>
+
+              <h3>Palabras clave de relevancia</h3>
+              <p className="ayuda">
+                El radar puntúa cada noticia sumando el peso de las palabras que encuentra en su titular. Pesos
+                negativos penalizan — útiles para descartar temas que se cuelan por una fuente genérica pero no
+                van con tu línea editorial. Solo pasan al digest las noticias con puntuación positiva.
+              </p>
+              <ul className="claves">
+                {clavesSugeridas.filter((p) => !clavesQuitadas.has(p)).map((p) => (
+                  <li key={p}>
+                    <span className="clave-palabra">{p}</span>
+                    <input
+                      type="number"
+                      value={pesosPersonalizados[p] ?? 6}
+                      onChange={(e) => setPesosPersonalizados((prev) => ({ ...prev, [p]: Number(e.target.value) }))}
+                    />
+                    <button type="button" onClick={() => setClavesQuitadas((prev) => new Set(prev).add(p))}>✕</button>
+                  </li>
+                ))}
+                {clavesExtra.map((p, i) => (
+                  <li key={`x-${i}`}>
+                    <span className="clave-palabra">{p.palabra}</span>
+                    <input
+                      type="number"
+                      value={p.peso}
+                      onChange={(e) =>
+                        setClavesExtra((prev) => prev.map((c, j) => (j === i ? { ...c, peso: Number(e.target.value) } : c)))
+                      }
+                    />
+                    <button type="button" onClick={() => setClavesExtra((prev) => prev.filter((_, j) => j !== i))}>✕</button>
+                  </li>
+                ))}
+              </ul>
+              <div className="fila-seccion">
+                <input
+                  placeholder="Palabra (ej. crypto)"
+                  value={nuevaClave.palabra}
+                  onChange={(e) => setNuevaClave((c) => ({ ...c, palabra: e.target.value }))}
+                />
+                <input
+                  type="number"
+                  placeholder="Peso"
+                  value={nuevaClave.peso}
+                  onChange={(e) => setNuevaClave((c) => ({ ...c, peso: Number(e.target.value) }))}
+                />
+                <button
+                  type="button"
+                  className="secundario"
+                  onClick={() => {
+                    const palabra = nuevaClave.palabra.trim().toLowerCase();
+                    if (!palabra) return;
+                    setClavesExtra((prev) => [...prev, { palabra, peso: nuevaClave.peso }]);
+                    setNuevaClave({ palabra: '', peso: 6 });
+                  }}
+                >
+                  + Añadir
+                </button>
+              </div>
             </section>
           )}
 
@@ -296,6 +383,10 @@ export default function Wizard() {
                 <li><strong>Editorial:</strong> {editorial}</li>
                 <li><strong>Secciones:</strong> {secciones.map((s) => s.nombre).join(', ')}</li>
                 <li><strong>Fuentes:</strong> {fuentesSeleccionadas.length} de la categoría {catalogo[categoria]?.nombre}</li>
+                <li>
+                  <strong>Relevancia:</strong> {palabrasClave.length} palabra(s) clave
+                  {palabrasClave.some((p) => p.peso < 0) && ` (${palabrasClave.filter((p) => p.peso < 0).length} de penalización)`}
+                </li>
                 <li><strong>Publicación:</strong> {frecuencia.label}, {cantidad} artículo(s) por tanda</li>
               </ul>
               {identidad && <div className="logo-svg chico" dangerouslySetInnerHTML={{ __html: identidad.svg }} />}
@@ -371,6 +462,12 @@ export default function Wizard() {
         .fuentes li { display: flex; align-items: center; justify-content: space-between; padding: 0.3rem 0; font-size: 0.9rem; }
         .fuentes label { font-weight: 400; margin: 0; display: flex; align-items: center; }
         .url { color: var(--tinta-suave, #888); font-size: 0.78rem; margin-left: 0.5rem; }
+        .claves { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0 0 0.8rem; }
+        .claves li { display: flex; align-items: center; gap: 0.4rem; background: var(--panel, #1a1a1a); border: 1px solid var(--regla, #444); border-radius: 8px; padding: 0.3rem 0.5rem; }
+        .clave-palabra { font-size: 0.85rem; }
+        .claves input[type=number] { width: 3.2rem; margin: 0; padding: 0.2rem 0.3rem; }
+        .claves button { padding: 0.1rem 0.4rem; background: transparent; border: none; color: var(--tinta-suave, #888); }
+        .claves button:hover { color: #ff6b6b; }
         .ayuda { color: var(--tinta-suave, #888); font-size: 0.9rem; }
         button { cursor: pointer; border: none; border-radius: 8px; padding: 0.6rem 1.1rem; font: inherit; font-weight: 700; }
         .primario { background: var(--primario, #6c5ce7); color: #fff; }

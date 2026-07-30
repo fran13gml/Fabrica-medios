@@ -60,7 +60,7 @@ export async function onRequestPost({ request, env }) {
     return json({ error: 'json inválido' }, 400);
   }
 
-  const { nombre, tematica, editorial, secciones, categoria, fuentes, frecuenciaLabel, frecuenciaCron, ventanaHoras, cantidad } = body;
+  const { nombre, tematica, editorial, secciones, categoria, fuentes, frecuenciaLabel, frecuenciaCron, ventanaHoras, cantidad, palabrasClave } = body;
 
   if (!nombre?.trim() || !tematica?.trim() || !editorial?.trim()) {
     return json({ error: 'faltan nombre, temática o línea editorial' }, 400);
@@ -80,6 +80,27 @@ export async function onRequestPost({ request, env }) {
 
   const identidad = generarIdentidad(nombre, tematica, editorial);
 
+  // El asistente manda su propia lista de palabras clave con pesos (editada
+  // a mano por quien crea el medio); si llega vacía o no llega, derivamos
+  // una por defecto de la temática y las secciones para que el radar no se
+  // quede sin ninguna señal de relevancia.
+  const clavesRecibidas = Array.isArray(palabrasClave)
+    ? palabrasClave
+        .map((p) => ({ palabra: String(p?.palabra ?? '').trim().toLowerCase(), peso: Number(p?.peso) || 0 }))
+        .filter((p) => p.palabra)
+    : [];
+
+  const clavesFinal = clavesRecibidas.length
+    ? clavesRecibidas
+    : Array.from(
+        new Set(
+          `${tematica} ${secciones.map((s) => `${s.nombre} ${s.descriptor}`).join(' ')}`
+            .toLowerCase()
+            .split(/[^a-záéíóúñü0-9]+/i)
+            .filter((p) => p.length >= 4)
+        )
+      ).map((palabra) => ({ palabra, peso: 6 }));
+
   const cfg = {
     nombre,
     slug,
@@ -92,6 +113,7 @@ export async function onRequestPost({ request, env }) {
     frecuenciaCron,
     ventanaHoras: Number(ventanaHoras) || 24,
     cantidad: Math.max(1, Math.min(10, Number(cantidad) || 1)),
+    palabrasClave: clavesFinal,
     identidad,
   };
 

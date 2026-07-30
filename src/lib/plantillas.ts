@@ -19,6 +19,11 @@ export interface Fuente {
   url: string;
 }
 
+export interface PalabraClave {
+  palabra: string;
+  peso: number;
+}
+
 export interface ConfigMedio {
   nombre: string;
   slug: string;
@@ -31,6 +36,7 @@ export interface ConfigMedio {
   frecuenciaCron: string;
   ventanaHoras: number;
   cantidad: number;
+  palabrasClave: PalabraClave[];
   identidad: Identidad;
 }
 
@@ -577,14 +583,10 @@ Este artículo de ejemplo queda en borrador. El radar y la autopublicación empe
     ) + '\n'
   );
 
-  const palabrasClave = Array.from(
-    new Set(
-      `${cfg.tematica} ${cfg.secciones.map((s) => `${s.nombre} ${s.descriptor}`).join(' ')}`
-        .toLowerCase()
-        .split(/[^a-záéíóúñü0-9]+/i)
-        .filter((p) => p.length >= 4)
-    )
-  );
+  // Diccionario palabra→peso (positivo puntúa a favor, negativo penaliza), al
+  // estilo de El Comando: cada señal se puntúa sumando los pesos de las
+  // palabras clave que aparecen en su título/resumen.
+  const pesosClave = Object.fromEntries(cfg.palabrasClave.map((p) => [p.palabra, p.peso]));
 
   add(
     'radar/radar.mjs',
@@ -594,7 +596,8 @@ Este artículo de ejemplo queda en borrador. El radar y la autopublicación empe
  *  ${cfg.nombre} — radar
  *  Generado por Fábrica de medios. Escanea las fuentes de la
  *  categoría "${cfg.categoria}" y puntúa por relevancia con la
- *  temática del medio.
+ *  temática del medio. Solo se consideran señal las noticias con
+ *  puntuación positiva (usa --all para ver también las descartadas).
  * ============================================================
  */
 import Parser from 'rss-parser';
@@ -602,7 +605,10 @@ import { writeFileSync, mkdirSync } from 'node:fs';
 
 const FEEDS = ${JSON.stringify(cfg.fuentes.map((f) => ({ name: f.nombre, url: f.url })), null, 2)};
 
-const PALABRAS_CLAVE = ${JSON.stringify(palabrasClave)};
+// Peso editorial: cuanto más alto, más encaja con la temática. Los pesos
+// negativos penalizan (útil para descartar temas que se cuelan por una
+// fuente genérica pero no van con la línea editorial).
+const PALABRAS_CLAVE = ${JSON.stringify(pesosClave, null, 2)};
 
 const args = process.argv.slice(2);
 const flag = (name, def) => {
@@ -616,6 +622,7 @@ const HOURS = Number(flag('hours', ${cfg.ventanaHoras}));
 const TOP = Number(flag('top', 20));
 const WANT_MD = args.includes('--md');
 const WANT_JSON = args.includes('--json');
+const SHOW_ALL = args.includes('--all');
 
 const parser = new Parser({ timeout: 10000 });
 
@@ -623,8 +630,8 @@ function score(item) {
   const text = \`\${item.title} \${item.contentSnippet ?? ''}\`.toLowerCase();
   let s = 0;
   const hits = [];
-  for (const kw of PALABRAS_CLAVE) {
-    if (text.includes(kw)) { s += 5; hits.push(kw); }
+  for (const [kw, w] of Object.entries(PALABRAS_CLAVE)) {
+    if (text.includes(kw)) { s += w; if (w > 0) hits.push(kw); }
   }
   return { score: s, hits };
 }
@@ -658,7 +665,9 @@ async function main() {
       const date = new Date(it.isoDate ?? it.pubDate ?? 0);
       return { ...it, source: feed.name, date, ...score(it) };
     })
-  ).filter((it) => it.date.getTime() > cutoff);
+  )
+    .filter((it) => it.date.getTime() > cutoff)
+    .filter((it) => SHOW_ALL || it.score > 0);
 
   const seen = new Set();
   const unique = todos.filter((it) => {
