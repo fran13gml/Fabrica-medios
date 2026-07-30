@@ -6,6 +6,7 @@
  * autopublicación), pero parametrizado para cualquier temática.
  */
 import type { Identidad } from './logo';
+import { construirDashboard } from './plantillas-dashboard';
 
 export interface Seccion {
   clave: string;
@@ -64,10 +65,25 @@ export function construirProyecto(cfg: ConfigMedio): Fichero[] {
         },
         dependencies: {
           '@astrojs/mdx': '^4.0.0',
+          '@astrojs/react': '^4.0.0',
           '@astrojs/rss': '^4.0.0',
+          '@tiptap/core': '^2.0.0',
+          '@tiptap/extension-image': '^2.0.0',
+          '@tiptap/extension-placeholder': '^2.0.0',
+          '@tiptap/extension-table': '^2.0.0',
+          '@tiptap/extension-table-row': '^2.0.0',
+          '@tiptap/extension-table-cell': '^2.0.0',
+          '@tiptap/extension-table-header': '^2.0.0',
+          '@tiptap/pm': '^2.0.0',
+          '@tiptap/react': '^2.0.0',
+          '@tiptap/starter-kit': '^2.0.0',
           astro: '^5.0.0',
+          react: '^18.0.0',
+          'react-dom': '^18.0.0',
         },
         devDependencies: {
+          '@types/react': '^18.0.0',
+          '@types/react-dom': '^18.0.0',
           typescript: '^5.0.0',
         },
       },
@@ -81,9 +97,10 @@ export function construirProyecto(cfg: ConfigMedio): Fichero[] {
     `// @ts-check
 import { defineConfig } from 'astro/config';
 import mdx from '@astrojs/mdx';
+import react from '@astrojs/react';
 
 export default defineConfig({
-  integrations: [mdx()],
+  integrations: [mdx(), react()],
   markdown: {
     shikiConfig: { theme: 'github-dark' },
   },
@@ -93,7 +110,14 @@ export default defineConfig({
 
   add(
     'tsconfig.json',
-    JSON.stringify({ extends: 'astro/tsconfigs/base' }, null, 2) + '\n'
+    JSON.stringify(
+      {
+        extends: 'astro/tsconfigs/base',
+        compilerOptions: { jsx: 'react-jsx', jsxImportSource: 'react' },
+      },
+      null,
+      2
+    ) + '\n'
   );
 
   add(
@@ -177,6 +201,8 @@ const articulos = defineCollection({
     fuente: z.string().optional(),
     borrador: z.boolean().default(false),
     etiquetas: z.array(z.string()).default([]),
+    imagen: z.string().optional(),
+    imagenCredito: z.string().optional(),
   }),
 });
 
@@ -194,10 +220,12 @@ interface Props {
   titulo: string;
   descripcion: string;
   ancho?: 'lectura' | 'panorama';
+  imagen?: string;
 }
 
-const { titulo, descripcion, ancho = 'lectura' } = Astro.props;
+const { titulo, descripcion, ancho = 'lectura', imagen } = Astro.props;
 const tituloCompleto = titulo === '${cfg.nombre}' ? '${cfg.nombre}' : \`\${titulo} · ${cfg.nombre}\`;
+const ogImageUrl = imagen && !imagen.startsWith('/src/') ? new URL(imagen, Astro.site ?? Astro.url).href : undefined;
 ---
 <!doctype html>
 <html lang="es">
@@ -213,6 +241,7 @@ const tituloCompleto = titulo === '${cfg.nombre}' ? '${cfg.nombre}' : \`\${titul
     <meta property="og:title" content={tituloCompleto} />
     <meta property="og:description" content={descripcion} />
     <meta property="og:site_name" content="${cfg.nombre}" />
+    {ogImageUrl && <meta property="og:image" content={ogImageUrl} />}
   </head>
   <body>
     <Header />
@@ -378,6 +407,24 @@ const { autor, cargo } = Astro.props;
 `
   );
 
+  add(
+    'src/components/articulo/Figura.astro',
+    `---
+interface Props { src: string; alt: string; pie?: string };
+const { src, alt, pie } = Astro.props;
+---
+<figure class="figura">
+  <img src={src} alt={alt} loading="lazy" />
+  {pie && <figcaption>{pie}</figcaption>}
+</figure>
+<style>
+  .figura { margin: 1.5rem 0; }
+  .figura img { width: 100%; height: auto; border-radius: var(--radio); display: block; }
+  .figura figcaption { font-size: 0.8rem; color: var(--tinta-suave); margin-top: 0.5rem; text-align: center; }
+</style>
+`
+  );
+
   // ── páginas ───────────────────────────────────────────
   add(
     'src/pages/index.astro',
@@ -464,7 +511,7 @@ export async function getStaticPaths() {
 const { a } = Astro.props as any;
 const { Content } = await render(a);
 ---
-<Base titulo={a.data.titulo} descripcion={a.data.descripcion}>
+<Base titulo={a.data.titulo} descripcion={a.data.descripcion} imagen={a.data.imagen}>
   <article>
     <p class="seccion-tag">{a.data.seccion}</p>
     <h1>{a.data.titulo}</h1>
@@ -847,6 +894,95 @@ jobs:
           git push
 `
   );
+
+  // ── dashboard: editor + creador de cards para redes ──
+  add(
+    'src/lib/medio.ts',
+    `export const NOMBRE_MEDIO = ${JSON.stringify(cfg.nombre)};
+`
+  );
+
+  add(
+    'src/pages/dashboard.astro',
+    `---
+/**
+ * /dashboard — sala de redacción interna: editor de artículos + creador de
+ * cards para redes sociales. Solo se renderiza en desarrollo (astro dev);
+ * en el build de producción la página queda vacía.
+ */
+import { getCollection } from 'astro:content';
+import { SECCIONES } from '../content.config';
+import Dashboard from '../components/Dashboard/Dashboard';
+
+const esDesarrollo = import.meta.env.DEV;
+
+const articulos = esDesarrollo
+  ? (await getCollection('articulos')).map((a) => ({
+      id: a.id,
+      titulo: a.data.titulo,
+      seccion: a.data.seccion,
+      etiquetas: a.data.etiquetas ?? [],
+      borrador: a.data.borrador ?? false,
+      url: \`/\${a.data.seccion}/\${a.id}/\`,
+      cuerpo: a.body ?? '',
+      meta: {
+        titulo: a.data.titulo,
+        descripcion: a.data.descripcion,
+        seccion: a.data.seccion,
+        fecha: a.data.fecha?.toISOString?.().slice(0, 10) ?? '',
+        autor: a.data.autor,
+        fuente: a.data.fuente ?? '',
+        borrador: a.data.borrador ?? false,
+        etiquetas: a.data.etiquetas ?? [],
+        imagen: a.data.imagen ?? '',
+        imagenCredito: a.data.imagenCredito ?? '',
+      },
+    }))
+  : [];
+
+const secciones = Object.entries(SECCIONES).map(([id, meta]) => ({
+  id,
+  nombre: meta.nombre,
+  descriptor: meta.descriptor,
+}));
+---
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>{esDesarrollo ? 'Dashboard · ${cfg.nombre}' : 'No disponible'}</title>
+    <style is:global>
+      :root {
+        --primario: ${cfg.identidad.paleta.primario};
+        --primario-oscuro: ${cfg.identidad.paleta.primarioOscuro};
+        --acento: ${cfg.identidad.paleta.acento};
+        --fondo: ${cfg.identidad.paleta.fondo};
+        --panel: ${cfg.identidad.paleta.panel};
+        --tinta: ${cfg.identidad.paleta.tinta};
+        --tinta-suave: color-mix(in srgb, var(--tinta) 65%, transparent);
+        --regla: color-mix(in srgb, var(--tinta) 12%, transparent);
+        --ui: -apple-system, 'Segoe UI', system-ui, sans-serif;
+        --mono: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+      }
+      body { margin: 0; }
+    </style>
+  </head>
+  <body>
+    {esDesarrollo ? (
+      <Dashboard client:only="react" articulos={articulos} secciones={secciones} />
+    ) : (
+      <main style="font-family:system-ui;padding:3rem;text-align:center;color:#9aa3b0;">
+        <p>404</p>
+      </main>
+    )}
+  </body>
+</html>
+`
+  );
+
+  ficheros.push(...construirDashboard());
 
   return ficheros;
 }

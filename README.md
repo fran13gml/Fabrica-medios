@@ -15,6 +15,7 @@ de GitHub nuevo, listo para desplegar en Cloudflare Pages.
 3. **Fuentes** — `src/data/catalogo-fuentes.json`, catálogo curado por categoría, editable en el asistente.
 4. **Generación** — `functions/api/generar-medio.js` construye el proyecto (`src/lib/plantillas.ts`) y lo sube a un repo nuevo vía la API de GitHub.
 5. **Autopublicación total** — cada medio generado incluye su propio radar (`radar/radar.mjs`) y un script (`scripts/auto-publicar.mjs`) que redacta con Claude y publica directamente, sin revisión humana, disparado por un GitHub Action (`.github/workflows/auto-publicar.yml`) con el cron elegido en el asistente.
+6. **Dashboard** (`/dashboard`, solo en `astro dev`) — cada medio generado trae su propia sala de redacción mínima: un editor WYSIWYG (TipTap) con bloques propios (Callout, ElDato, Cita) que exporta a MDX listo para `src/content/articulos/`, y un creador de cards para redes (El dato, La cita, Última hora, Las claves) que descarga PNG en los formatos de Instagram/TikTok/X/OG, siempre con el logo y la paleta del medio. Fuente: `src/lib/plantillas-dashboard.ts` (generado a partir de las plantillas fuente en el propio código de la fábrica).
 
 ## Puesta en marcha de la fábrica
 
