@@ -71,7 +71,7 @@ export async function onRequestPost({ request, env }) {
   if (!Array.isArray(fuentes) || fuentes.length === 0) {
     return json({ error: 'necesitas al menos una fuente para el radar' }, 400);
   }
-  if (!frecuenciaCron || !/^\S+\s+\S+\s+\S+\s+\S+\s+\S+$/.test(frecuenciaCron)) {
+  if (!frecuenciaCron || !/^[\d*/,-]+(?:\s+[\d*/,-]+){4}$/.test(frecuenciaCron)) {
     return json({ error: 'frecuenciaCron inválida' }, 400);
   }
 

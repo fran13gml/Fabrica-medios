@@ -24,6 +24,16 @@ export interface Identidad {
   svg: string;
 }
 
+/** Escapa texto libre para insertarlo como atributo/texto dentro del SVG. */
+function escapeXml(texto: string): string {
+  return texto
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
 /** Hash FNV-1a de 32 bits: determinista y estable entre navegador y servidor. */
 function hash(texto: string): number {
   let h = 0x811c9dc5;
@@ -76,7 +86,7 @@ export function generarIdentidad(nombre: string, tematica: string, editorial: st
   const inic = iniciales(nombre);
   const id = `${seed}`;
 
-  const svg = `<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Logo de ${nombre}">
+  const svg = `<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Logo de ${escapeXml(nombre)}">
   <defs>
     <linearGradient id="g-${id}" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0%" stop-color="${paleta.primario}" />
@@ -84,7 +94,7 @@ export function generarIdentidad(nombre: string, tematica: string, editorial: st
     </linearGradient>
   </defs>
   ${formaVariante(variante, id)}
-  <text x="100" y="122" text-anchor="middle" font-family="'Segoe UI', system-ui, sans-serif" font-weight="800" font-size="72" fill="${paleta.tinta}" letter-spacing="-2">${inic}</text>
+  <text x="100" y="122" text-anchor="middle" font-family="'Segoe UI', system-ui, sans-serif" font-weight="800" font-size="72" fill="${paleta.tinta}" letter-spacing="-2">${escapeXml(inic)}</text>
   <circle cx="152" cy="56" r="7" fill="${paleta.acento}" />
 </svg>`;
 

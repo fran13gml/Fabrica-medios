@@ -8,6 +8,47 @@
 import type { Identidad } from './logo';
 import { construirDashboard } from './plantillas-dashboard';
 
+// Los campos libres del asistente (nombre, temática, editorial, secciones…)
+// terminan escritos dentro de ficheros que luego se compilan o ejecutan como
+// código (.ts, .astro, .mjs). Sin escapar, una comilla o un backtick del
+// usuario rompe el build; un "${...}" se cuela como interpolación real
+// cuando Node ejecute el .mjs generado. Cada interpolación de un campo
+// libre usa uno de estos helpers según el contexto donde aterriza.
+
+/** Para insertar como literal de cadena JS/TS (reemplaza las comillas que
+ *  rodeaban la interpolación a mano: úsalo sin comillas alrededor). */
+function js(valor: string): string {
+  return JSON.stringify(valor);
+}
+
+/** Para insertar como texto o atributo dentro de marcado .astro/HTML que
+ *  escribimos nosotros como texto plano (no pasa por el escapado en tiempo
+ *  de ejecución de Astro porque no es una expresión {}). */
+function html(valor: string): string {
+  return valor
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/** Para insertar como texto dentro de OTRO template literal (backticks) que
+ *  forma parte del fichero generado, p. ej. el prompt de auto-publicar.mjs. */
+function backtick(valor: string): string {
+  return valor
+    .replace(/\\/g, '\\\\')
+    .replace(/`/g, '\\`')
+    .replace(/\$\{/g, '\\${');
+}
+
+/** Para insertar dentro de un comentario /* * / de un fichero generado: sin
+ *  esto, un texto que contenga "* /" cerraría el comentario antes de tiempo
+ *  y lo que viniera detrás se ejecutaría como código real. */
+function comentario(valor: string): string {
+  return valor.replace(/\*\//g, '*∕');
+}
+
 export interface Seccion {
   clave: string;
   nombre: string;
@@ -189,7 +230,7 @@ import { glob } from 'astro/loaders';
 export const SECCIONES = {
 ${cfg.secciones
   .map(
-    (s) => `  '${s.clave}': { nombre: '${s.nombre}', descriptor: '${s.descriptor}' },`
+    (s) => `  ${js(s.clave)}: { nombre: ${js(s.nombre)}, descriptor: ${js(s.descriptor)} },`
   )
   .join('\n')}
 } as const;
@@ -203,7 +244,7 @@ const articulos = defineCollection({
     descripcion: z.string().max(200),
     seccion: z.enum([${cfg.secciones.map((s) => `'${s.clave}'`).join(', ')}]),
     fecha: z.coerce.date(),
-    autor: z.string().default('${cfg.nombre}'),
+    autor: z.string().default(${js(cfg.nombre)}),
     fuente: z.string().optional(),
     borrador: z.boolean().default(false),
     etiquetas: z.array(z.string()).default([]),
@@ -230,7 +271,7 @@ interface Props {
 }
 
 const { titulo, descripcion, ancho = 'lectura', imagen } = Astro.props;
-const tituloCompleto = titulo === '${cfg.nombre}' ? '${cfg.nombre}' : \`\${titulo} · ${cfg.nombre}\`;
+const tituloCompleto = titulo === ${js(cfg.nombre)} ? ${js(cfg.nombre)} : \`\${titulo} · ${backtick(cfg.nombre)}\`;
 const ogImageUrl = imagen && !imagen.startsWith('/src/') ? new URL(imagen, Astro.site ?? Astro.url).href : undefined;
 ---
 <!doctype html>
@@ -241,12 +282,12 @@ const ogImageUrl = imagen && !imagen.startsWith('/src/') ? new URL(imagen, Astro
     <title>{tituloCompleto}</title>
     <meta name="description" content={descripcion} />
     <link rel="canonical" href={Astro.url} />
-    <link rel="alternate" type="application/rss+xml" title="${cfg.nombre}" href="/rss.xml" />
+    <link rel="alternate" type="application/rss+xml" title="${html(cfg.nombre)}" href="/rss.xml" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content={tituloCompleto} />
     <meta property="og:description" content={descripcion} />
-    <meta property="og:site_name" content="${cfg.nombre}" />
+    <meta property="og:site_name" content="${html(cfg.nombre)}" />
     {ogImageUrl && <meta property="og:image" content={ogImageUrl} />}
   </head>
   <body>
@@ -255,7 +296,7 @@ const ogImageUrl = imagen && !imagen.startsWith('/src/') ? new URL(imagen, Astro
       <slot />
     </main>
     <footer class="pie">
-      <p>${cfg.nombre} — generado y mantenido por Fábrica de medios.</p>
+      <p>${html(cfg.nombre)} — generado y mantenido por Fábrica de medios.</p>
       <p class="pie-meta"><a href="/rss.xml">RSS</a></p>
     </footer>
   </body>
@@ -321,9 +362,9 @@ const pathname = Astro.url.pathname;
 const esActiva = (clave: string) => pathname.startsWith(\`/\${clave}/\`);
 ---
 <header class="hdr">
-  <a href="/" class="marca" aria-label="${cfg.nombre} — portada">
+  <a href="/" class="marca" aria-label="${html(cfg.nombre)} — portada">
     <img src="/favicon.svg" alt="" class="marca-logo" width="28" height="28" />
-    <span class="marca-nombre">${cfg.nombre}</span>
+    <span class="marca-nombre">${html(cfg.nombre)}</span>
   </a>
   <nav class="nav" aria-label="Secciones">
     <ul>
@@ -442,7 +483,7 @@ import { SECCIONES } from '../content.config';
 const articulos = (await getCollection('articulos', ({ data }) => !data.borrador))
   .sort((a, b) => b.data.fecha.valueOf() - a.data.fecha.valueOf());
 ---
-<Base titulo="${cfg.nombre}" descripcion="${cfg.tematica}" ancho="panorama">
+<Base titulo="${html(cfg.nombre)}" descripcion="${html(cfg.tematica)}" ancho="panorama">
   <section class="portada">
     {articulos.length === 0 && <p>Todavía no hay artículos publicados. El radar y la autopublicación están en marcha.</p>}
     <ul class="rejilla">
@@ -544,8 +585,8 @@ import { getCollection } from 'astro:content';
 export async function GET(context) {
   const articulos = await getCollection('articulos', ({ data }) => !data.borrador);
   return rss({
-    title: '${cfg.nombre}',
-    description: '${cfg.tematica}',
+    title: ${js(cfg.nombre)},
+    description: ${js(cfg.tematica)},
     site: context.site ?? 'https://example.com',
     items: articulos.map((a) => ({
       title: a.data.titulo,
@@ -561,7 +602,7 @@ export async function GET(context) {
   add(
     `src/content/articulos/bienvenida.mdx`,
     `---
-titulo: "Bienvenida a ${cfg.nombre}"
+titulo: ${js(`Bienvenida a ${cfg.nombre}`)}
 descripcion: ${JSON.stringify(cfg.tematica)}
 seccion: ${primeraSeccion}
 fecha: ${new Date().toISOString().slice(0, 10)}
@@ -593,7 +634,7 @@ Este artículo de ejemplo queda en borrador. El radar y la autopublicación empe
     `#!/usr/bin/env node
 /**
  * ============================================================
- *  ${cfg.nombre} — radar
+ *  ${comentario(cfg.nombre)} — radar
  *  Generado por Fábrica de medios. Escanea las fuentes de la
  *  categoría "${cfg.categoria}" y puntúa por relevancia con la
  *  temática del medio. Solo se consideran señal las noticias con
@@ -680,7 +721,7 @@ async function main() {
   unique.sort((a, b) => b.score - a.score || b.date - a.date);
   const top = unique.slice(0, TOP);
 
-  console.log(\`Radar ${cfg.nombre} · \${top.length} señales en las últimas \${HOURS}h\`);
+  console.log(\`Radar ${backtick(cfg.nombre)} · \${top.length} señales en las últimas \${HOURS}h\`);
   for (const it of top) {
     console.log(\`- [\${it.score}] \${it.title} (\${it.source}, \${timeAgo(it.date)})\`);
   }
@@ -728,9 +769,9 @@ const NOMBRE_MEDIO = ${JSON.stringify(cfg.nombre)};
 
 const VOZ = \`Eres el redactor de \${NOMBRE_MEDIO}.
 
-LÍNEA EDITORIAL: ${cfg.editorial.replace(/`/g, "'").replace(/\\/g, '\\\\')}
+LÍNEA EDITORIAL: ${backtick(cfg.editorial)}
 
-TEMÁTICA: ${cfg.tematica.replace(/`/g, "'").replace(/\\/g, '\\\\')}
+TEMÁTICA: ${backtick(cfg.tematica)}
 
 REGLA DE VERACIDAD — la más importante:
 Solo puedes afirmar lo que aparezca en el contexto que se te da. No inventes datos, cifras, fechas ni declaraciones. Si el contexto es escaso, escribe una pieza más corta: es preferible a rellenar.\`;
@@ -873,7 +914,7 @@ main();
     `name: auto-publicar
 on:
   schedule:
-    - cron: "${cfg.frecuenciaCron}"
+    - cron: ${js(cfg.frecuenciaCron)}
   workflow_dispatch: {}
 permissions:
   contents: write
@@ -965,7 +1006,7 @@ const secciones = Object.entries(SECCIONES).map(([id, meta]) => ({
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="noindex, nofollow" />
-    <title>{esDesarrollo ? 'Dashboard · ${cfg.nombre}' : 'No disponible'}</title>
+    <title>{esDesarrollo ? ${js(`Dashboard · ${cfg.nombre}`)} : 'No disponible'}</title>
     <style is:global>
       :root {
         --primario: ${cfg.identidad.paleta.primario};

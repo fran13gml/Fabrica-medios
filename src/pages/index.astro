@@ -21,11 +21,16 @@ import Base from '../layouts/Base.astro';
 
 <script>
   const el = document.getElementById('lista')!;
+
+  function esc(s: unknown): string {
+    return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+  }
+
   fetch('/api/medios')
     .then((r) => r.json())
     .then((data) => {
       if (data.aviso) {
-        el.innerHTML = `<p class="vacio">${data.aviso}. Crea tu primer medio con "+ Crear medio".</p>`;
+        el.innerHTML = `<p class="vacio">${esc(data.aviso)}. Crea tu primer medio con "+ Crear medio".</p>`;
         return;
       }
       if (!data.medios?.length) {
@@ -36,10 +41,10 @@ import Base from '../layouts/Base.astro';
         .map(
           (m: any) => `
         <article class="tarjeta">
-          <h2>${m.nombre}</h2>
-          <p>${m.tematica}</p>
-          <p><span class="estado ${m.estado}">${m.estado}</span> · ${m.frecuencia_cron} · ${m.cantidad} art./tanda</p>
-          ${m.repo_url ? `<p><a href="${m.repo_url}" target="_blank" rel="noreferrer">${m.repo_url}</a></p>` : ''}
+          <h2>${esc(m.nombre)}</h2>
+          <p>${esc(m.tematica)}</p>
+          <p><span class="estado ${esc(m.estado)}">${esc(m.estado)}</span> · ${esc(m.frecuencia_cron)} · ${esc(m.cantidad)} art./tanda</p>
+          ${m.repo_url ? `<p><a href="${esc(m.repo_url)}" target="_blank" rel="noreferrer">${esc(m.repo_url)}</a></p>` : ''}
         </article>`
         )
         .join('');
