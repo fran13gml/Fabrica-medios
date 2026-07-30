@@ -108,7 +108,9 @@ export default function Wizard() {
     return nombre.trim().length > 1 && tematica.trim().length > 3 && editorial.trim().length > 10;
   }
   function validoPaso2() {
-    return secciones.length > 0 && secciones.every((s) => s.clave && s.nombre && s.descriptor);
+    if (secciones.length === 0 || !secciones.every((s) => s.clave && s.nombre && s.descriptor)) return false;
+    const claves = secciones.map((s) => s.clave);
+    return new Set(claves).size === claves.length;
   }
   function validoPaso3() {
     return fuentesSeleccionadas.length > 0;
@@ -240,6 +242,9 @@ export default function Wizard() {
               <button type="button" className="secundario" onClick={() => setSecciones((prev) => [...prev, { clave: '', nombre: '', descriptor: '' }])}>
                 + Añadir sección
               </button>
+              {new Set(secciones.map((s) => s.clave)).size !== secciones.length && (
+                <p className="error">Dos secciones tienen nombres demasiado parecidos y generan la misma clave — cámbiales el nombre para distinguirlas.</p>
+              )}
             </section>
           )}
 

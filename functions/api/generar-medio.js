@@ -68,8 +68,17 @@ export async function onRequestPost({ request, env }) {
   if (!Array.isArray(secciones) || secciones.length === 0) {
     return json({ error: 'necesitas al menos una sección' }, 400);
   }
+  if (secciones.some((s) => !s?.clave?.trim() || !s?.nombre?.trim() || !s?.descriptor?.trim())) {
+    return json({ error: 'cada sección necesita clave, nombre y descriptor' }, 400);
+  }
+  if (new Set(secciones.map((s) => s.clave)).size !== secciones.length) {
+    return json({ error: 'hay dos secciones con nombres demasiado parecidos (generan la misma clave)' }, 400);
+  }
   if (!Array.isArray(fuentes) || fuentes.length === 0) {
     return json({ error: 'necesitas al menos una fuente para el radar' }, 400);
+  }
+  if (fuentes.some((f) => !f?.nombre?.trim() || !f?.url?.trim())) {
+    return json({ error: 'cada fuente necesita nombre y URL' }, 400);
   }
   if (!frecuenciaCron || !/^[\d*/,-]+(?:\s+[\d*/,-]+){4}$/.test(frecuenciaCron)) {
     return json({ error: 'frecuenciaCron inválida' }, 400);
@@ -111,7 +120,7 @@ export async function onRequestPost({ request, env }) {
     fuentes,
     frecuenciaLabel: frecuenciaLabel ?? frecuenciaCron,
     frecuenciaCron,
-    ventanaHoras: Number(ventanaHoras) || 24,
+    ventanaHoras: Math.max(1, Number(ventanaHoras) || 24),
     cantidad: Math.max(1, Math.min(10, Number(cantidad) || 1)),
     palabrasClave: clavesFinal,
     identidad,
