@@ -110,18 +110,32 @@ export async function onRequestPost({ request, env }) {
   const repoData = await creado.json();
   const owner = repoData.owner.login;
 
-  // 2. Subir cada fichero (repo recién creado, sin sha previo).
+  // 2. Subir cada fichero (repo recién creado, sin sha previo). GitHub aplica
+  //    rate-limiting secundario a ráfagas de escritura, así que cada PUT
+  //    reintenta con backoff antes de darse por vencido.
+  const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  async function subirFichero(f, intentos = 3) {
+    for (let intento = 1; intento <= intentos; intento++) {
+      const res = await gh(env, `/repos/${owner}/${slug}/contents/${f.path}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          message: `fábrica: scaffold inicial (${f.path})`,
+          content: b64(f.content),
+          branch: 'main',
+        }),
+      });
+      if (res.ok) return null;
+      const reintentable = res.status === 403 || res.status === 429 || res.status >= 500;
+      if (!reintentable || intento === intentos) return { path: f.path, status: res.status };
+      await esperar(500 * 2 ** (intento - 1));
+    }
+  }
+
   const fallos = [];
   for (const f of ficheros) {
-    const res = await gh(env, `/repos/${owner}/${slug}/contents/${f.path}`, {
-      method: 'PUT',
-      body: JSON.stringify({
-        message: `fábrica: scaffold inicial (${f.path})`,
-        content: b64(f.content),
-        branch: 'main',
-      }),
-    });
-    if (!res.ok) fallos.push({ path: f.path, status: res.status });
+    const fallo = await subirFichero(f);
+    if (fallo) fallos.push(fallo);
   }
 
   // 3. Registrar en el índice de medios (best-effort: si no hay D1 configurada

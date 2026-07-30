@@ -328,10 +328,24 @@ export default function Wizard() {
 
       {resultado && (
         <section className="resultado">
-          <h2>¡Medio creado!</h2>
+          <h2>{resultado.ficherosFallidos?.length ? '⚠️ Medio creado con avisos' : '¡Medio creado!'}</h2>
           <p>
             Repo: <a href={resultado.repo} target="_blank" rel="noreferrer">{resultado.repo}</a>
           </p>
+          {resultado.ficherosFallidos?.length > 0 && (
+            <div className="aviso-fallos">
+              <p>
+                GitHub rechazó {resultado.ficherosFallidos.length} fichero(s) al subir el proyecto (rate-limit u otro
+                error temporal). El repo se creó igual, pero le faltan estos ficheros y su deploy fallará hasta
+                subirlos a mano o re-crear el medio:
+              </p>
+              <ul>
+                {resultado.ficherosFallidos.map((f: { path: string; status: number }) => (
+                  <li key={f.path}><code>{f.path}</code> — HTTP {f.status}</li>
+                ))}
+              </ul>
+            </div>
+          )}
           <h3>Últimos pasos</h3>
           <ol>
             {resultado.siguientesPasos.map((p: string) => (
@@ -370,6 +384,9 @@ export default function Wizard() {
         .resumen { list-style: none; padding: 0; }
         .resumen li { padding: 0.3rem 0; border-bottom: 1px solid var(--regla, #333); }
         .error { color: #ff6b6b; }
+        .aviso-fallos { background: rgba(255,107,107,0.1); border: 1px solid #ff6b6b; border-radius: 8px; padding: 0.8rem 1rem; margin: 1rem 0; }
+        .aviso-fallos ul { margin: 0.5rem 0 0; padding-left: 1.2rem; }
+        .aviso-fallos code { font-size: 0.85rem; }
       `}</style>
     </div>
   );
