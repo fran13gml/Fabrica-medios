@@ -372,7 +372,6 @@ const esActiva = (clave: string) => pathname.startsWith(\`/\${clave}/\`);
         <li>
           <a href={\`/\${clave}/\`} class:list={['seccion', { activa: esActiva(clave) }]} aria-current={esActiva(clave) ? 'page' : undefined}>
             <span class="seccion-nombre">{s.nombre}</span>
-            <span class="seccion-label">{s.descriptor}</span>
           </a>
         </li>
       ))}
@@ -392,9 +391,8 @@ const esActiva = (clave: string) => pathname.startsWith(\`/\${clave}/\`);
   .marca { display: inline-flex; align-items: center; gap: 0.5rem; text-decoration: none; font-weight: 800; font-size: 1.05rem; color: var(--tinta); }
   .marca-logo { border-radius: 6px; }
   .nav ul { display: flex; gap: 4px; margin: 0; padding: 0; list-style: none; overflow-x: auto; }
-  .seccion { display: inline-flex; align-items: baseline; gap: 6px; padding: 0.5rem 0.6rem; text-decoration: none; border-bottom: 2px solid transparent; white-space: nowrap; }
+  .seccion { display: inline-flex; align-items: baseline; padding: 0.5rem 0.6rem; text-decoration: none; border-bottom: 2px solid transparent; white-space: nowrap; }
   .seccion-nombre { color: var(--tinta); font-size: 0.84rem; font-weight: 700; text-transform: lowercase; }
-  .seccion-label { color: var(--tinta-suave); font-size: 0.76rem; }
   .seccion:hover .seccion-nombre, .seccion.activa .seccion-nombre { color: var(--primario); }
   .seccion.activa { border-bottom-color: var(--primario); }
 </style>
