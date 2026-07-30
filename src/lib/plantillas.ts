@@ -502,6 +502,10 @@ const articulos = (await getCollection('articulos', ({ data }) => !data.borrador
     `---
 import Base from '../../layouts/Base.astro';
 import { getCollection, render } from 'astro:content';
+import Callout from '../../components/articulo/Callout.astro';
+import Cita from '../../components/articulo/Cita.astro';
+import ElDato from '../../components/articulo/ElDato.astro';
+import Figura from '../../components/articulo/Figura.astro';
 
 export async function getStaticPaths() {
   const articulos = await getCollection('articulos', ({ data }) => !data.borrador);
@@ -516,7 +520,7 @@ const { Content } = await render(a);
     <p class="seccion-tag">{a.data.seccion}</p>
     <h1>{a.data.titulo}</h1>
     <p class="meta">{a.data.fecha.toLocaleDateString('es-ES')}{a.data.fuente && <> · Fuente: {a.data.fuente}</>}</p>
-    <Content />
+    <Content components={{ Callout, Cita, ElDato, Figura }} />
   </article>
 </Base>
 <style>
