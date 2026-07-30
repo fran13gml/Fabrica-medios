@@ -1,0 +1,50 @@
+---
+import Base from '../layouts/Base.astro';
+---
+<Base titulo="Panel">
+  <h1>Medios creados</h1>
+  <p class="ayuda">Cada medio generado aquí vive en su propio repo, con su propio radar y su propia autopublicación.</p>
+  <div id="lista">Cargando…</div>
+</Base>
+
+<style>
+  .ayuda { color: var(--tinta-suave); }
+  .tarjeta { background: var(--panel); border-radius: 12px; padding: 1.2rem; margin-bottom: 1rem; }
+  .tarjeta h2 { margin: 0 0 0.3rem; font-size: 1.1rem; }
+  .tarjeta p { margin: 0.2rem 0; color: var(--tinta-suave); font-size: 0.9rem; }
+  .estado { display: inline-block; padding: 0.15rem 0.6rem; border-radius: 999px; font-size: 0.75rem; font-weight: 700; }
+  .estado.listo { background: #1e3a2e; color: #6ee7a0; }
+  .estado.error { background: #3a1e1e; color: #ff8787; }
+  .estado.generando { background: #3a331e; color: #f0d080; }
+  .vacio { color: var(--tinta-suave); }
+</style>
+
+<script>
+  const el = document.getElementById('lista')!;
+  fetch('/api/medios')
+    .then((r) => r.json())
+    .then((data) => {
+      if (data.aviso) {
+        el.innerHTML = `<p class="vacio">${data.aviso}. Crea tu primer medio con "+ Crear medio".</p>`;
+        return;
+      }
+      if (!data.medios?.length) {
+        el.innerHTML = '<p class="vacio">Todavía no has creado ningún medio.</p>';
+        return;
+      }
+      el.innerHTML = data.medios
+        .map(
+          (m: any) => `
+        <article class="tarjeta">
+          <h2>${m.nombre}</h2>
+          <p>${m.tematica}</p>
+          <p><span class="estado ${m.estado}">${m.estado}</span> · ${m.frecuencia_cron} · ${m.cantidad} art./tanda</p>
+          ${m.repo_url ? `<p><a href="${m.repo_url}" target="_blank" rel="noreferrer">${m.repo_url}</a></p>` : ''}
+        </article>`
+        )
+        .join('');
+    })
+    .catch(() => {
+      el.innerHTML = '<p class="vacio">No se pudo cargar el panel.</p>';
+    });
+</script>

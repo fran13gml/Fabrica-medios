@@ -1,0 +1,52 @@
+---
+interface Props {
+  titulo: string;
+  descripcion?: string;
+}
+const { titulo, descripcion = 'Crea, viste y automatiza un medio digital nuevo desde un asistente.' } = Astro.props;
+---
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{titulo} · Fábrica de medios</title>
+    <meta name="description" content={descripcion} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <header class="hdr">
+      <a href="/" class="marca">🏭 Fábrica de medios</a>
+      <a href="/crear" class="cta">+ Crear medio</a>
+    </header>
+    <main>
+      <slot />
+    </main>
+  </body>
+</html>
+
+<style is:global>
+  :root {
+    --fondo: #0b0e14;
+    --panel: #141925;
+    --tinta: #f0f2f5;
+    --tinta-suave: #8b93a3;
+    --primario: #6c5ce7;
+    --regla: #232b3a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--fondo);
+    color: var(--tinta);
+    font-family: -apple-system, 'Segoe UI', system-ui, sans-serif;
+  }
+  main { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+  a { color: inherit; }
+  .hdr {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 1rem 1.5rem; border-bottom: 1px solid var(--regla);
+  }
+  .marca { font-weight: 800; text-decoration: none; font-size: 1.1rem; }
+  .cta { background: var(--primario); color: #fff; padding: 0.5rem 1rem; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 0.9rem; }
+</style>

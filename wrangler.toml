@@ -1,0 +1,11 @@
+name = "fabrica-medios"
+compatibility_date = "2025-01-01"
+pages_build_output_dir = "./dist"
+
+# Registro de medios creados por la fábrica.
+# Crea la base con `wrangler d1 create fabrica-medios-registro` y pega el
+# database_id que te devuelva aquí abajo.
+[[d1_databases]]
+binding = "DB"
+database_name = "fabrica-medios-registro"
+database_id = "PENDIENTE-CREAR-CON-WRANGLER-D1-CREATE"
