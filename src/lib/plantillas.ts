@@ -49,13 +49,23 @@ function comentario(valor: string): string {
   return valor.replace(/\*\//g, '*∕');
 }
 
+/** Recorta un texto libre a un máximo de caracteres, respetando palabras
+ *  completas. Necesario porque el esquema de content.config.ts pone límites
+ *  (p. ej. descripcion <= 200) que un campo libre del asistente puede
+ *  sobrepasar sin avisar — sin esto, el build del medio revienta en cuanto
+ *  la temática es un poco larga. */
+function recortar(texto: string, max: number): string {
+  const t = texto.trim();
+  if (t.length <= max) return t;
+  return t.slice(0, max - 1).replace(/\s+\S*$/, '') + '…';
+}
+
 /** Recorta un texto libre a un eslogan corto para la cabecera, cortando en
  *  la primera frase o en un límite de caracteres por palabra completa. */
 function eslogan(texto: string, max = 70): string {
   const primeraFrase = texto.split(/(?<=[.!?])\s/)[0]?.trim() ?? texto.trim();
   const base = primeraFrase.length <= max ? primeraFrase : texto.trim();
-  if (base.length <= max) return base;
-  return base.slice(0, max).replace(/\s+\S*$/, '') + '…';
+  return recortar(base, max);
 }
 
 function hashSimple(s: string): number {
@@ -775,8 +785,8 @@ export async function GET(context) {
   add(
     `src/content/articulos/bienvenida.mdx`,
     `---
-titulo: ${js(`Bienvenida a ${cfg.nombre}`)}
-descripcion: ${JSON.stringify(cfg.tematica)}
+titulo: ${js(recortar(`Bienvenida a ${cfg.nombre}`, 105))}
+descripcion: ${js(recortar(cfg.tematica, 195))}
 seccion: ${primeraSeccion}
 fecha: ${new Date().toISOString().slice(0, 10)}
 borrador: true
@@ -972,6 +982,15 @@ function slugify(s) {
     .replace(/[^a-z0-9\\s-]/g, '').trim().replace(/\\s+/g, '-').slice(0, 70);
 }
 
+// El esquema de content.config.ts limita titulo (110) y descripcion (200);
+// un titular real de RSS o de Claude puede superarlo de sobra, así que sin
+// esto el build revienta en cuanto toca publicar un artículo así.
+function recortar(texto, max) {
+  const t = texto.trim();
+  if (t.length <= max) return t;
+  return t.slice(0, max - 1).replace(/\\s+\\S*$/, '') + '…';
+}
+
 function elegirSeccion(item) {
   const texto = \`\${item.titulo} \${(item.hits || []).join(' ')}\`.toLowerCase();
   let mejor = SECCIONES[0];
@@ -1049,9 +1068,9 @@ async function main() {
     }
 
     const tituloMatch = mdx.match(/^#\\s+(.+)$/m);
-    const titulo = tituloMatch ? tituloMatch[1].trim() : item.titulo;
+    const titulo = recortar(tituloMatch ? tituloMatch[1].trim() : item.titulo, 108);
     const cuerpo = tituloMatch ? mdx.replace(tituloMatch[0], '').trim() : mdx;
-    const descripcion = cuerpo.replace(/[#*_>\`\\[\\]]/g, '').split('\\n').find((l) => l.trim().length > 40)?.slice(0, 195) ?? item.titulo;
+    const descripcion = recortar(cuerpo.replace(/[#*_>\`\\[\\]]/g, '').split('\\n').find((l) => l.trim().length > 40) ?? item.titulo, 195);
     const seccion = elegirSeccion(item);
     const slug = slugify(titulo);
     const fecha = new Date().toISOString().slice(0, 10);
